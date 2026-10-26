@@ -111,9 +111,11 @@ class SauceLabsPage extends BasePage {
 
     async goToCart() {
         await this.cartLink.click();
+        await this.page.waitForURL('**/cart.html');
     }
 
     async getCartItemCount() {
+        await this.cartItems.first().waitFor({ state: 'visible' });
         return await this.cartItems.count();
     }
 
@@ -123,19 +125,23 @@ class SauceLabsPage extends BasePage {
         await this.lastNameInput.fill(lastName);
         await this.zipInput.fill(zip);
         await this.continueBtn.click();
+        await this.page.waitForURL('**/checkout-step-two.html');
     }
 
     async getOrderTotal() {
-        const text = await this.getText(this.orderTotal);
+        await this.orderTotal.waitFor({ state: 'visible' });
+        const text = await this.orderTotal.innerText();
         return parseFloat(text.replace('Total: $', ''));
     }
 
     async finishOrder() {
         await this.finishBtn.click();
+        await this.page.waitForURL('**/checkout-complete.html');
     }
 
     async getConfirmationMessage() {
-        return await this.getText(this.confirmHeader);
+        await this.confirmHeader.waitFor({ state: 'visible' });
+        return (await this.confirmHeader.innerText()).trim();
     }
 
     // ── Full checkout flow shortcut ───────────────────────────────────────────

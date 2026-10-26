@@ -47,18 +47,16 @@ test('Banner is visible when 6 events are returned', async ({ request, page }) =
     //Login and navigate
     await loginAndGoToEvents(page);
 
-    //Verify card loaded from mock
-    const eventcard = await page.locator('#event-card h3').allTextContents();
-    console.log('✅ Banner is visible when 6 events are returned', eventcard);
+    // Wait for mock data to render before reading DOM
+    await page.locator('#event-card').first().waitFor({ state: 'visible' });
 
     //Verify first card is visible and count is 6
-    await page.locator('#event-card').first().isVisible();
     let eventcardcount = await page.locator('#event-card').count();
     expect(eventcardcount).toBe(6);
     console.log('✅ First card is visible and count is 6', eventcardcount);
 
-    //Verify the banner is visible
-    await page.getByText('Your sandbox holds up to 9').isVisible();
+    //Verify the banner is visible (expect auto-waits for element)
+    await expect(page.getByText('Your sandbox holds up to 9')).toBeVisible();
     await expect(page.getByText('Your sandbox holds up to 9')).toContainText('9 bookings');
 
 });
@@ -77,17 +75,14 @@ test('Banner is not visible when 4 events are not returned', async ({ request, p
     //Login and navigate
     await loginAndGoToEvents(page);
 
-    //Verify card loaded from mock
-    const eventcard = await page.locator('#event-card h3').allTextContents();
-    console.log('✅ Banner is not visible when 4 events are returned', eventcard);
+    // Wait for mock data to render before reading DOM
+    await page.locator('#event-card').first().waitFor({ state: 'visible' });
 
     //Verify first card is visible and count is 4
-    await page.locator('#event-card').first().isVisible();
     let eventcardcount = await page.locator('#event-card').count();
     expect(eventcardcount).toBe(4);
     console.log('✅ First card is visible and count is 4', eventcardcount);
 
     //Verify the banner is not visible
-    await page.getByText('Your sandbox holds up to 9').isHidden();
-    await expect(page.getByText('Your sandbox holds up to 9')).not.toBeVisible('9 bookings');
+    await expect(page.getByText('Your sandbox holds up to 9')).not.toBeVisible();
 });
