@@ -1,4 +1,5 @@
 node_modules/
+tests/data/auth/
 playwright-report/
 test-results/
 allure-results/

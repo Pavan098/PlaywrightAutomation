@@ -1,0 +1,23 @@
+{
+  "saucelabs": {
+    "standard": { "username": "standard_user",   "password": "secret_sauce" },
+    "locked":   { "username": "locked_out_user", "password": "secret_sauce" },
+    "problem":  { "username": "problem_user",    "password": "secret_sauce" }
+  },
+  "eventhub": {
+    "primary": {
+      "email":    "luxortest1@gmail.com",
+      "password": "Oneplus@0908"
+    },
+    "yahoo": {
+      "email":    "luxor@yahoo.com",
+      "password": "Oneplus@0908"
+    }
+  },
+  "rahulshetty": {
+    "primary": {
+      "email":    "luxorplus1@gmail.com",
+      "password": "Oneplus@0908"
+    }
+  }
+}

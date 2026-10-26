@@ -1,6 +1,11 @@
 const { test, expect, request } = require('@playwright/test');
-const fs = require('fs');
+const fs   = require('fs');
+const path = require('path');
 const { assertSchema } = require('../utils/SchemaValidator');
+
+const { eventhub: { primary: creds } } = require(path.join(__dirname, '../data/users.json'));
+const { createEvent: eventcreate, updateEvent: updatevent } =
+    require(path.join(__dirname, '../data/mockResponses/events.json'));
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 const loginResponseSchema = {
@@ -32,32 +37,9 @@ const currentUserSchema = {
     },
 };
 
-const creds = { email: "luxortest1@gmail.com", password: "Oneplus@0908" };
-const cred2 = { email: "", password: "Oneplus@0908" };
-const creds1 = { email: "luxortest1@gmail.com", password: "test@0908" };
+const cred2  = { email: "",                       password: "Oneplus@0908" };
+const creds1 = { email: "luxortest1@gmail.com",    password: "test@0908"    };
 const url = "https://api.eventhub.rahulshettyacademy.com/api";
-const eventcreate = {
-    title: "QA Summit Workshop",
-    description: "Tranforming the QA Test to AI driven Test",
-    category: "Workshop",
-    venue: "Pune Tech Centre",
-    city: "Pune",
-    eventDate: "2027-06-15T09:00:00.000Z",
-    price: 1500,
-    totalSeats: 500,
-    imageUrl: "https://example.com/banner.jpg"
-};
-const updatevent = {
-    title: "QA Summit Workshop Updated",
-    description: "Tranforming the QA Test to AI driven Test Automation",
-    category: "Workshop And Conference",
-    venue: "Pune Tech Centre",
-    city: "Pune",
-    eventDate: "2027-07-15T09:00:00.000Z",
-    price: 1500,
-    totalSeats: 500,
-    imageUrl: "https://example.com/banner.jpg"
-};
 
 let authToken;
 

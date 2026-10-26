@@ -19,6 +19,11 @@ A production-grade end-to-end test automation framework built with **Playwright*
 - [Visual Regression Testing](#visual-regression-testing)
 - [AI Self-Healing Locators](#ai-self-healing-locators)
 - [API Schema Validation](#api-schema-validation)
+- [Auth State Reuse](#auth-state-reuse)
+- [Flaky Test Quarantine](#flaky-test-quarantine)
+- [Mobile Testing](#mobile-testing)
+- [Copilot Instructions](#copilot-instructions)
+- [Prompt Versioning](#prompt-versioning)
 - [CI/CD](#cicd)
 - [Docker](#docker)
 - [Reporting](#reporting)
@@ -49,6 +54,13 @@ This framework was built incrementally, adding real-world production capabilitie
 | **GitHub Actions** | Full CI pipeline with sharding, artifacts, PR comments, nightly schedule |
 | **Folder Structure** | Tests reorganized into `tests/ui/`, `tests/api/`, `tests/e2e/` by type |
 | **Schema Validation** | `SchemaValidator.js` — validates API response shape before asserting values |
+| **Auth State Reuse** | `global.setup.js` logs in once; all tests reuse saved session — no per-test login |
+| **Test Data Layer** | `tests/data/` — users, products, mock responses decoupled from test code |
+| **Component POMs** | `Pages/components/` — NavBar, ProductCard, Modal for reuse across POMs |
+| **Flaky Quarantine** | `@flaky` tag + quarantine project isolates known flaky tests from main run |
+| **Mobile Viewport** | `mobile-chrome` (Pixel 5) and `mobile-safari` (iPhone 12) projects |
+| **Copilot Instructions** | `.github/copilot-instructions.md` — coding standards for AI-generated code |
+| **Prompt Versioning** | `prompts/` — versioned AI prompts for consistent test generation |
 
 ---
 
@@ -61,6 +73,8 @@ This framework was built incrementally, adding real-world production capabilitie
 | Page Object Model | Test architecture pattern |
 | `tests/ui` / `api` / `e2e` folders | Organised test layers (UI, API, end-to-end) |
 | `SchemaValidator.js` | Zero-dependency JSON schema validation for API responses |
+| `global.setup.js` | Auth state reuse — login once, share session across all tests |
+| `Pages/components/` | Reusable UI component classes (NavBar, ProductCard, Modal) |
 | GitHub Actions | CI/CD — 4-shard parallel execution + nightly schedule |
 | Jenkins | Alternative CI pipeline (Docker agent) |
 | Docker | Consistent cross-platform test execution |
@@ -81,13 +95,31 @@ PlaywrightAutomation/
 │   └── workflows/
 │       └── playwright.yml              # GitHub Actions — 4 parallel shards + merge report
 ├── Pages/                              # Page Object Models
+│   ├── components/                     # Reusable UI components (shared across POMs)
+│   │   ├── NavBar.js                   # SauceLabs top-nav: cart count, logout, menu
+│   │   ├── ProductCard.js              # Single product tile: name, price, add/remove
+│   │   └── Modal.js                    # Generic modal: dismiss, confirm, getTitle
 │   ├── BasePage.js                     # Base class: goto, waitForVisible, clickWithRetry
 │   ├── Login.js                        # EventHub login page
 │   ├── SauceLabs.js                    # SauceLabs (inventory, cart, checkout, sort)
 │   ├── TodoMVC.js                      # TodoMVC (add, complete, delete, filter, edit)
 │   ├── FlightBooking.js                # Flight booking form
 │   └── Flipkart.js                     # Flipkart (modal dismiss + hover)
+├── prompts/                            # Versioned AI prompts for test generation
+│   ├── templates/
+│   │   ├── ui-test-template.md         # Fill-in template for UI test generation
+│   │   └── api-test-template.md        # Fill-in template for API test generation
+│   ├── v1-ui-test-flow.md              # UI test generation prompt (v1)
+│   ├── v2-api-test-flow.md             # API test generation prompt (v2)
+│   └── v3-pom-creation.md              # POM/component creation prompt (v3)
 ├── tests/
+│   ├── data/                           # Static test data decoupled from test files
+│   │   ├── auth/                       # Saved session files (gitignored — auto-generated)
+│   │   ├── mockResponses/
+│   │   │   └── events.json             # Mock API event payloads
+│   │   ├── users.json                  # Credentials for all apps (saucelabs, eventhub)
+│   │   └── products.json               # SauceLabs product catalogue + checkout data
+│   ├── global.setup.js                 # Logs in once to each app, saves storageState
 │   ├── ui/                             # Browser-based UI tests
 │   │   ├── visual.spec.js-snapshots/   # Committed baseline screenshots (6 PNGs, Windows)
 │   │   ├── UIbasics.spec.js            # Forms, calendar, alerts, iframes, multi-tab
@@ -127,6 +159,8 @@ PlaywrightAutomation/
 │       ├── Logger.js                   # Structured JSON logger
 │       ├── ApiUtils.js                 # HTTP request helpers
 │       └── ExcelHelper.js              # Excel download/read/write
+├── .github/
+│   └── copilot-instructions.md         # Coding standards for GitHub Copilot
 ├── .dockerignore                       # Excludes node_modules, reports, .env, .git
 ├── .env.example                        # Environment variable template
 ├── .gitignore
@@ -194,10 +228,34 @@ ANTHROPIC_API_KEY=your_key_here   # Optional — enables AI self-healing
 # Run all tests (headless)
 npm test
 
+# Run all tests (setup → chromium)
+npm test
+
 # Run by folder — fastest way to target a layer
 npm run test:ui               # all tests/ui/ specs
 npm run test:api              # all tests/api/ specs
 npm run test:e2e              # all tests/e2e/ specs
+
+# Filter by tag
+npm run test:smoke            # @smoke — critical happy-path tests
+npm run test:regression       # @regression — full regression suite
+
+# Flaky test quarantine (isolated, 5 retries, does not run in main suite)
+npm run test:quarantine
+
+# Mobile viewports (Pixel 5 + iPhone 12)
+npm run test:mobile
+
+# Specific browsers
+npm run test:chromium
+npm run test:firefox
+npm run test:webkit
+npm run test:all-browsers     # chromium + firefox + webkit
+
+# Specific test types
+npm run test:a11y             # Accessibility scans only
+npm run test:visual           # Visual regression only
+npm run test:visual:update    # Regenerate visual baselines after a UI change
 
 # Run with a visible browser
 npm run test:headed
@@ -205,24 +263,9 @@ npm run test:headed
 # Open Playwright UI explorer (interactive test runner)
 npm run test:explore
 
-# Filter by tag
-npm run test:smoke            # @smoke — critical happy-path tests
-npm run test:regression       # @regression — full regression suite
-
-# Specific test types
-npm run test:a11y             # Accessibility scans only
-npm run test:visual           # Visual regression only
-npm run test:visual:update    # Regenerate visual baselines after a UI change
-
-# Specific browsers
-npm run test:chromium
-npm run test:firefox
-npm run test:webkit
-npm run test:all-browsers     # All 3 browsers in sequence
-
 # Run a single spec file
-npx playwright test tests/ui/sauceLabs-pom.spec.js
-npx playwright test tests/api/eventApi.spec.js
+npx playwright test tests/ui/sauceLabs-pom.spec.js --project=chromium
+npx playwright test tests/api/eventApi.spec.js --project=chromium
 
 # Open last HTML report
 npm run report
@@ -481,6 +524,115 @@ Login response schema validation failed:
 | `min: n` | Minimum numeric value |
 | `items: {}` | Schema for the first item of an array (spot-checks array contents) |
 | `properties: {}` | Nested schema for an object field |
+
+---
+
+## Auth State Reuse
+
+`tests/global.setup.js` runs **once before the whole suite** and logs into each app, saving browser session cookies/localStorage to `tests/data/auth/*.json`. Every subsequent test loads that file — no login call per test.
+
+```
+Without auth reuse:  60 tests × 2s login = 2 minutes wasted per run
+With auth reuse:     login runs once = 2 seconds total
+```
+
+**How it works:**
+
+```js
+// tests/global.setup.js — runs automatically via 'setup' project
+setup('authenticate: saucelabs', async ({ page }) => {
+    await page.goto('https://www.saucedemo.com/');
+    await page.locator('#user-name').fill(username);
+    await page.locator('#password').fill(password);
+    await page.locator('#login-button').click();
+    await page.context().storageState({ path: 'tests/data/auth/saucelabs.json' });
+});
+```
+
+**Using it in a test file:**
+
+```js
+const path = require('path');
+// Load session at the top of the spec — no login in beforeEach
+test.use({ storageState: path.join(__dirname, '../data/auth/saucelabs.json') });
+
+test.beforeEach(async ({ page }) => {
+    await page.goto('https://www.saucedemo.com/inventory.html'); // already logged in
+});
+```
+
+> `tests/data/auth/` is gitignored — state files are regenerated on each `npm test` run.
+
+---
+
+## Flaky Test Quarantine
+
+Tests tagged `@flaky` are excluded from the main chromium run and only execute in a separate quarantine project with 5 retries. This keeps CI green without hiding flakiness.
+
+```
+npm test              → skips @flaky tests (fast, reliable CI signal)
+npm run test:quarantine → runs ONLY @flaky tests with 5 retries
+```
+
+**Tagging a flaky test:**
+
+```js
+test('banner appears after load @smoke @flaky', async ({ page }) => {
+    // known intermittent: banner sometimes renders after 3s on slow CI
+});
+```
+
+**Workflow:** tag → quarantine → investigate root cause → fix → remove `@flaky`.
+
+---
+
+## Mobile Testing
+
+Two mobile viewport projects are configured: `mobile-chrome` (Pixel 5) and `mobile-safari` (iPhone 12).
+
+```bash
+# Install webkit for mobile-safari
+npx playwright install webkit
+
+# Run all tests on mobile viewports
+npm run test:mobile
+
+# Run a single spec on mobile
+npx playwright test tests/ui/sauceLabs-pom.spec.js --project=mobile-chrome
+```
+
+Mobile projects also run via the setup project (auth state reuse works on mobile too).
+
+---
+
+## Copilot Instructions
+
+`.github/copilot-instructions.md` teaches GitHub Copilot this framework's standards so every AI-generated suggestion follows the correct patterns:
+
+- Folder placement rules (`tests/ui/` vs `api/` vs `e2e/`)
+- Locator priority order (role → label → text → testId — never XPath)
+- POM structure (extend BasePage, locators in constructor only)
+- Required tags on every test
+- `assertSchema()` before any field assertions in API tests
+- Auth state reuse instead of per-test login
+- `@flaky` quarantine pattern
+- What not to generate (hardcoded credentials, waitForTimeout, test.only)
+
+---
+
+## Prompt Versioning
+
+`prompts/` stores versioned Markdown prompts for consistent AI test generation. Use them with GitHub Copilot Chat, Claude, or any LLM:
+
+| File | Use for |
+|------|---------|
+| `v1-ui-test-flow.md` | Generating a new `tests/ui/` spec file |
+| `v2-api-test-flow.md` | Generating a new `tests/api/` spec + schema file |
+| `v3-pom-creation.md` | Generating a new POM or component class |
+| `templates/ui-test-template.md` | Fill-in template with placeholders |
+| `templates/api-test-template.md` | Fill-in template for API tests |
+
+Each prompt is versioned — when framework conventions change, bump the version and update the prompt so generated code stays consistent.
 
 ---
 

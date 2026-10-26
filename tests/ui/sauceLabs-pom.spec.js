@@ -14,19 +14,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require('@playwright/test');
+const path = require('path');
 const SauceLabsPage = require('../../Pages/SauceLabs');
 
-const USER = 'standard_user';
-const PASS = 'secret_sauce';
+// Reuse the auth session saved by global.setup.js — no login call needed per test.
+// The browser opens with cookies/localStorage already populated.
+test.use({ storageState: path.join(__dirname, '../data/auth/saucelabs.json') });
 
-// beforeEach: login and arrive on the products page for every test
 test.describe('SauceLabs — Checkout & Cart @regression', () => {
 
     test.beforeEach(async ({ page }) => {
-        const sauce = new SauceLabsPage(page);
-        await sauce.goto();
-        await sauce.login(USER, PASS);
-        // Confirm we reached the inventory page
+        // Session already loaded from storageState — navigate directly to inventory
+        await page.goto('https://www.saucedemo.com/inventory.html');
         await expect(page).toHaveURL(/inventory/);
     });
 

@@ -1,22 +1,23 @@
-// @ts-check
-require('dotenv').config();   // Loads .env file automatically
+require('dotenv').config();
 const { defineConfig, devices } = require('@playwright/test');
 
 // ─── REPORTER SETUP ───────────────────────────────────────────────────────────
-// We always use the built-in HTML reporter.
-// Allure is used only if the package is installed (npm install allure-playwright).
-// This keeps the config working even before allure is installed.
+// Allure is added only when allure-playwright is installed.
+// Using @type {import('@playwright/test').ReporterDescription[]} keeps TS happy
+// while still allowing the dynamic push below.
+
+/** @type {import('@playwright/test').ReporterDescription[]} */
 const reporters = [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    ['list'],   // Terminal output — shows each test pass/fail in real time
+    ['list'],
 ];
 
 try {
     require.resolve('allure-playwright');
-    reporters.push(['allure-playwright', { outputFolder: 'allure-results', detail: true }]);
+    reporters.push(['allure-playwright', { outputFolder: 'allure-results' }]);
     console.log('📊 Allure reporter enabled');
 } catch {
-    // allure-playwright not installed — that's fine
+    // allure-playwright not installed — skipping
 }
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -76,31 +77,59 @@ module.exports = defineConfig({
     },
 
     // ── BROWSER PROJECTS ──────────────────────────────────────────────────────
-    // Run 'npm run test:all-browsers' to test across all three browsers.
-    // In CI we default to chromium only (faster and free).
-    // ── DEFAULT: Chromium only ────────────────────────────────────────────────
-    // Run multi-browser with: npm run test:all-browsers
-    // In CI: set BROWSERS env var to add firefox/webkit
     projects: [
+
+        // ── Auth setup (runs first, saves storageState JSON files) ────────────
+        // tests/global.setup.js logs into SauceLabs + EventHub once per suite.
+        // All browser projects declare this as a dependency so tests start
+        // with a valid session — no repeated login calls per test.
+        {
+            name: 'setup',
+            testMatch: /global\.setup\.js/,
+        },
+
+        // ── Default: Chromium desktop ─────────────────────────────────────────
+        // @flaky tests are excluded from normal runs.
+        // Run flaky tests explicitly: npm run test:quarantine
         {
             name: 'chromium',
             use: { ...devices['Desktop Chrome'] },
+            dependencies: ['setup'],
+            grepInvert: /@flaky/,
         },
-        // Uncomment after running: npx playwright install firefox
-        // { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
 
-        // Uncomment after running: npx playwright install webkit
-        // { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+        // ── Quarantine: isolated run for known-flaky tests ────────────────────
+        // Only runs via:  npm run test:quarantine
+        // Use @flaky tag to mark tests: test('name @flaky', ...)
+        // Higher retries isolate the flakiness without hiding it in main run.
+        {
+            name: 'chromium-quarantine',
+            grep: /@flaky/,
+            retries: 5,
+            use: { ...devices['Desktop Chrome'] },
+            dependencies: ['setup'],
+        },
 
-        // Mobile (after installing respective browsers)
-        // { name: 'mobile-chrome', use: { ...devices['Pixel 5'] } },
-        // { name: 'mobile-safari', use: { ...devices['iPhone 12'] } },
+        // ── Mobile viewports ──────────────────────────────────────────────────
+        // Run via:  npm run test:mobile
+        // Requires: npx playwright install chromium webkit
+        {
+            name: 'mobile-chrome',
+            use: { ...devices['Pixel 5'] },
+            dependencies: ['setup'],
+            grepInvert: /@flaky/,
+        },
+        {
+            name: 'mobile-safari',
+            use: { ...devices['iPhone 12'] },
+            dependencies: ['setup'],
+            grepInvert: /@flaky/,
+        },
+
+        // ── Additional desktop browsers ───────────────────────────────────────
+        // Run via:  npm run test:all-browsers
+        // Requires: npx playwright install firefox webkit
+        // { name: 'firefox', use: { ...devices['Desktop Firefox'] }, dependencies: ['setup'] },
+        // { name: 'webkit',  use: { ...devices['Desktop Safari']  }, dependencies: ['setup'] },
     ],
-
-    // ── GLOBAL SETUP / TEARDOWN ───────────────────────────────────────────────
-    // globalSetup runs ONCE before all tests (good for seeding auth tokens)
-    // globalTeardown runs ONCE after all tests (good for cleanup)
-    // Uncomment when you create these files:
-    // globalSetup: require.resolve('./tests/global-setup.js'),
-    // globalTeardown: require.resolve('./tests/global-teardown.js'),
 });
