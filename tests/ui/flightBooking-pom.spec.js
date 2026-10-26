@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require('@playwright/test');
-const FlightBookingPage = require('../Pages/FlightBooking');
+const FlightBookingPage = require('../../Pages/FlightBooking');
 
 test.describe('Flight Booking — POM Tests @regression', () => {
 

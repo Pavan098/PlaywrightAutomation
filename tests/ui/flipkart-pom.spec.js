@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require('@playwright/test');
-const FlipkartPage = require('../Pages/Flipkart');
+const FlipkartPage = require('../../Pages/Flipkart');
 
 test.describe('Flipkart — POM Tests @regression', () => {
 

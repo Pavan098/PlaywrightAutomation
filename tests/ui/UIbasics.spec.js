@@ -1,5 +1,5 @@
 const {test, expect} = require('@playwright/test'); //import always;
-const {Login} = require('../Pages/Login');
+const {Login} = require('../../Pages/Login');
 
 //all tests here starts simultaneoisuly it does not follow the order so we need to use await always as the
 //the keyword comes with async function 

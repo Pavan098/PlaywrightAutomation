@@ -1,5 +1,36 @@
 const { test, expect, request } = require('@playwright/test');
 const fs = require('fs');
+const { assertSchema } = require('../utils/SchemaValidator');
+
+// ── Schemas ───────────────────────────────────────────────────────────────────
+const loginResponseSchema = {
+    token: { required: true,  type: 'string', minLength: 10 },
+    user:  { required: true,  type: 'object' },
+};
+
+const createEventResponseSchema = {
+    message: { required: true, type: 'string' },
+    data: {
+        required: true,
+        type: 'object',
+        properties: {
+            id:          { required: true, type: 'number', min: 1 },
+            title:       { required: true, type: 'string', minLength: 1 },
+            city:        { required: true, type: 'string' },
+            totalSeats:  { required: true, type: 'number', min: 1 },
+        },
+    },
+};
+
+const currentUserSchema = {
+    user: {
+        required: true,
+        type: 'object',
+        properties: {
+            email: { required: true, type: 'string', minLength: 5 },
+        },
+    },
+};
 
 const creds = { email: "luxortest1@gmail.com", password: "Oneplus@0908" };
 const cred2 = { email: "", password: "Oneplus@0908" };
@@ -73,6 +104,7 @@ test.beforeAll(async ({ request }) => {
 
         const loginResponse = await login.json();
         console.log('Login Response:', loginResponse);
+        assertSchema(loginResponse, loginResponseSchema, 'Login response');
 
         // Extract and store token
         authToken = loginResponse.token || loginResponse.accessToken || loginResponse.authToken || loginResponse.access_token;
@@ -200,6 +232,7 @@ test('Verify the APi of Currently authenticated user', async ({ request }) => {
 
     const currentuser = await getcurrentuser.json();
     console.log('Current User Response:', currentuser);
+    assertSchema(currentuser, currentUserSchema, 'Current user response');
     expect(currentuser.user.email).toBe(creds.email);
 
     // Example 2: Test Bad request 401
@@ -259,6 +292,7 @@ test('Verify the List of Users Get Event, Create a New Event, get the event crea
 
     const eventdetails = await createEvent.json();
     console.log(eventdetails);
+    assertSchema(eventdetails, createEventResponseSchema, 'Create event response');
     expect(eventdetails.message).toBe("Event created successfully");
     expect(eventdetails.data.description).toBe("Tranforming the QA Test to AI driven Test");
     expect(eventdetails.data.city).toBe("Pune");

@@ -1,6 +1,6 @@
 const {test, expect} = require('@playwright/test');
 const path = require('path');
-const { ExcelHelper } = require('./utils/ExcelHelper');
+const { ExcelHelper } = require('../utils/ExcelHelper');
 
 test('Visit the Website and Download the Excel and read the columns and rows from the Excel', async ({page}) => {
 

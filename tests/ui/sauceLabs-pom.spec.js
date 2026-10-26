@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require('@playwright/test');
-const SauceLabsPage = require('../Pages/SauceLabs');
+const SauceLabsPage = require('../../Pages/SauceLabs');
 
 const USER = 'standard_user';
 const PASS = 'secret_sauce';

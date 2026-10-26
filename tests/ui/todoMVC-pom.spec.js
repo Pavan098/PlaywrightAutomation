@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { test, expect } = require('@playwright/test');
-const TodoMVCPage = require('../Pages/TodoMVC');
+const TodoMVCPage = require('../../Pages/TodoMVC');
 
 const SAMPLE_TODOS = ['Buy groceries', 'Read a book', 'Write tests', 'Exercise'];
 
