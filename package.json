@@ -6,29 +6,28 @@
     "test": "npx playwright test",
     "test:headed": "npx playwright test --headed",
     "test:ui": "npx playwright test --ui",
-
     "test:smoke": "npx playwright test --grep @smoke",
     "test:regression": "npx playwright test --grep @regression",
     "test:api": "npx playwright test --grep @api",
     "test:ui-only": "npx playwright test --grep @ui",
-
     "test:chromium": "npx playwright test --project=chromium",
     "test:firefox": "npx playwright test --project=firefox",
     "test:webkit": "npx playwright test --project=webkit",
     "test:all-browsers": "npx playwright test --project=chromium --project=firefox --project=webkit",
-
     "test:ci": "npx playwright test --reporter=list,html",
-
+    "test:a11y": "npx playwright test tests/accessibility.spec.js",
+    "test:visual": "npx playwright test tests/visual.spec.js",
+    "test:visual:update": "npx playwright test tests/visual.spec.js --update-snapshots",
     "allure:generate": "npx allure generate allure-results --clean -o allure-report",
     "allure:open": "npx allure open allure-report",
     "allure:report": "npm run allure:generate && npm run allure:open",
-
     "report": "npx playwright show-report"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "^1.49.0",
-    "allure-playwright": "^3.0.4",
     "allure-commandline": "^2.32.0",
+    "allure-playwright": "^3.0.4",
     "dotenv": "^16.4.5"
   },
   "dependencies": {
