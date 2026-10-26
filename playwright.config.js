@@ -24,6 +24,11 @@ module.exports = defineConfig({
     testDir: './tests',
     outputDir: 'test-results',
 
+    // Visual regression baselines are captured per-OS (win32 vs linux).
+    // Skip visual tests in CI to avoid false failures from font rendering differences.
+    // Run locally with: npm run test:visual
+    testIgnore: process.env.CI ? ['**/visual.spec.js'] : [],
+
     // Run tests in parallel within a file? false = safer for tests sharing state
     fullyParallel: false,
 
