@@ -1,5 +1,6 @@
 const { test: setup, expect } = require('@playwright/test');
 const path = require('path');
+const fs   = require('fs');
 const users = require('./data/users.json');
 
 const SAUCELABS_AUTH = path.join(__dirname, 'data/auth/saucelabs.json');
@@ -18,6 +19,7 @@ setup('authenticate: saucelabs', async ({ page }) => {
     await page.locator('#login-button').click();
     await expect(page).toHaveURL(/inventory/);
 
+    fs.mkdirSync(path.dirname(SAUCELABS_AUTH), { recursive: true });
     await page.context().storageState({ path: SAUCELABS_AUTH });
     console.log('✅ SauceLabs auth state saved');
 });
@@ -32,6 +34,7 @@ setup('authenticate: eventhub', async ({ page }) => {
     await page.locator('#login-btn').click();
     await expect(page.getByRole('link', { name: 'Browse Events →' })).toBeVisible();
 
+    fs.mkdirSync(path.dirname(EVENTHUB_AUTH), { recursive: true });
     await page.context().storageState({ path: EVENTHUB_AUTH });
     console.log('✅ EventHub auth state saved');
 });
