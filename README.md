@@ -18,6 +18,7 @@ A production-grade end-to-end test automation framework built with **Playwright*
 - [Accessibility Testing](#accessibility-testing)
 - [Visual Regression Testing](#visual-regression-testing)
 - [AI Self-Healing Locators](#ai-self-healing-locators)
+- [API Schema Validation](#api-schema-validation)
 - [CI/CD](#cicd)
 - [Docker](#docker)
 - [Reporting](#reporting)
@@ -46,6 +47,8 @@ This framework was built incrementally, adding real-world production capabilitie
 | **Docker** | `Dockerfile` + `.dockerignore` for consistent cross-platform execution |
 | **Jenkins** | `Jenkinsfile` declarative pipeline upgraded to Docker agent |
 | **GitHub Actions** | Full CI pipeline with sharding, artifacts, PR comments, nightly schedule |
+| **Folder Structure** | Tests reorganized into `tests/ui/`, `tests/api/`, `tests/e2e/` by type |
+| **Schema Validation** | `SchemaValidator.js` — validates API response shape before asserting values |
 
 ---
 
@@ -56,6 +59,8 @@ This framework was built incrementally, adding real-world production capabilitie
 | [Playwright](https://playwright.dev) v1.49+ | Browser automation & test runner |
 | JavaScript (CommonJS) | Language |
 | Page Object Model | Test architecture pattern |
+| `tests/ui` / `api` / `e2e` folders | Organised test layers (UI, API, end-to-end) |
+| `SchemaValidator.js` | Zero-dependency JSON schema validation for API responses |
 | GitHub Actions | CI/CD — 4-shard parallel execution + nightly schedule |
 | Jenkins | Alternative CI pipeline (Docker agent) |
 | Docker | Consistent cross-platform test execution |
@@ -74,53 +79,61 @@ This framework was built incrementally, adding real-world production capabilitie
 PlaywrightAutomation/
 ├── .github/
 │   └── workflows/
-│       └── playwright.yml            # GitHub Actions — 4 parallel shards + merge report
-├── Pages/                            # Page Object Models
-│   ├── BasePage.js                   # Base class: goto, waitForVisible, clickWithRetry
-│   ├── Login.js                      # EventHub login page
-│   ├── SauceLabs.js                  # SauceLabs (inventory, cart, checkout, sort)
-│   ├── TodoMVC.js                    # TodoMVC (add, complete, delete, filter, edit)
-│   ├── FlightBooking.js              # Flight booking form
-│   └── Flipkart.js                   # Flipkart (modal dismiss + hover)
+│       └── playwright.yml              # GitHub Actions — 4 parallel shards + merge report
+├── Pages/                              # Page Object Models
+│   ├── BasePage.js                     # Base class: goto, waitForVisible, clickWithRetry
+│   ├── Login.js                        # EventHub login page
+│   ├── SauceLabs.js                    # SauceLabs (inventory, cart, checkout, sort)
+│   ├── TodoMVC.js                      # TodoMVC (add, complete, delete, filter, edit)
+│   ├── FlightBooking.js                # Flight booking form
+│   └── Flipkart.js                     # Flipkart (modal dismiss + hover)
 ├── tests/
+│   ├── ui/                             # Browser-based UI tests
+│   │   ├── visual.spec.js-snapshots/   # Committed baseline screenshots (6 PNGs, Windows)
+│   │   ├── UIbasics.spec.js            # Forms, calendar, alerts, iframes, multi-tab
+│   │   ├── saucelabs.spec.js           # SauceLabs login & product tests
+│   │   ├── sauceLabs-pom.spec.js       # SauceLabs POM — cart, checkout, sort
+│   │   ├── todoMVC.spec.js             # TodoMVC basic tests
+│   │   ├── todoMVC-pom.spec.js         # TodoMVC POM — filters, edit, clearCompleted
+│   │   ├── dropdownsWeb.spec.js        # Dropdowns, radio buttons, date pickers
+│   │   ├── flightBooking-pom.spec.js   # Flight booking POM tests
+│   │   ├── flipkart.spec.js            # Flipkart hover & modal tests
+│   │   ├── flipkart-pom.spec.js        # Flipkart POM tests
+│   │   ├── accessibility.spec.js       # WCAG 2.1 AA scans — SauceLabs + TodoMVC
+│   │   ├── visual.spec.js              # Visual regression pixel-diff tests
+│   │   ├── sessionStorage.spec.js      # Session & local storage state tests
+│   │   └── example.spec.js             # Playwright starter example
+│   ├── api/                            # Pure API & network layer tests
+│   │   ├── schemas/                    # JSON schema definitions
+│   │   │   ├── loginSchema.js          # token, userId, message fields
+│   │   │   ├── orderSchema.js          # orders array + orderid
+│   │   │   └── eventSchema.js          # event item + pagination structure
+│   │   ├── Apitests.spec.js            # REST API — status codes, response body
+│   │   ├── eventApi.spec.js            # EventHub CRUD (with schema validation)
+│   │   ├── eventhubApi.spec.js         # API mock injection + response interception
+│   │   ├── Interceptapirequest.spec.js # Intercept & modify outgoing requests
+│   │   └── Interceptapiresponse.spec.js# Mock API responses
+│   ├── e2e/                            # Full end-to-end flow tests
+│   │   ├── crossBooking.spec.js        # Cross-browser-context booking flow
+│   │   └── readWriteExcel.spec.js      # Excel data-driven download/read/write
 │   ├── config/
-│   │   └── env.js                    # Environment configs (dev / staging / prod)
+│   │   └── env.js                      # Environment configs (dev / staging / prod)
 │   ├── fixtures/
-│   │   └── index.js                  # Custom Playwright fixtures (healingPage)
-│   ├── utils/
-│   │   ├── SelfHealingLocator.js     # AI-powered locator recovery via Claude Haiku
-│   │   ├── TestDataFactory.js        # Random test data generator
-│   │   ├── Logger.js                 # Structured JSON logger
-│   │   ├── ApiUtils.js               # HTTP request helpers
-│   │   └── ExcelHelper.js            # Excel download/read/write
-│   ├── visual.spec.js-snapshots/     # Committed baseline screenshots (6 PNGs, Windows)
-│   ├── UIbasics.spec.js              # Core UI tests — forms, calendar, alerts, iframes
-│   ├── saucelabs.spec.js             # SauceLabs login & product tests (raw)
-│   ├── sauceLabs-pom.spec.js         # SauceLabs POM tests (cart, checkout, sort)
-│   ├── todoMVC.spec.js               # TodoMVC basic tests (raw)
-│   ├── todoMVC-pom.spec.js           # TodoMVC POM tests (filters, edit, clearCompleted)
-│   ├── dropdownsWeb.spec.js          # Dropdowns, radio buttons, date pickers
-│   ├── flightBooking-pom.spec.js     # Flight booking POM tests
-│   ├── flipkart.spec.js              # Flipkart hover & modal tests (raw)
-│   ├── flipkart-pom.spec.js          # Flipkart POM tests
-│   ├── accessibility.spec.js         # WCAG 2.1 AA scans — SauceLabs + TodoMVC
-│   ├── visual.spec.js                # Visual regression pixel-diff tests
-│   ├── Apitests.spec.js              # REST API tests (JSONPlaceholder)
-│   ├── eventApi.spec.js              # EventHub REST API CRUD
-│   ├── eventhubApi.spec.js           # EventHub API mock & response interception
-│   ├── crossBooking.spec.js          # Cross-browser-context booking flow
-│   ├── Interceptapirequest.spec.js   # Request interception & modification
-│   ├── Interceptapiresponse.spec.js  # Response mocking
-│   ├── sessionStorage.spec.js        # Session & local storage state
-│   ├── readWriteExcel.spec.js        # Excel data-driven tests
-│   └── example.spec.js               # Playwright starter example
-├── .dockerignore                     # Excludes node_modules, reports, .env, .git
-├── .env.example                      # Environment variable template
+│   │   └── index.js                    # Custom Playwright fixtures (healingPage)
+│   └── utils/
+│       ├── SchemaValidator.js          # Zero-dependency JSON schema validator
+│       ├── SelfHealingLocator.js       # AI-powered locator recovery via Claude Haiku
+│       ├── TestDataFactory.js          # Random test data generator
+│       ├── Logger.js                   # Structured JSON logger
+│       ├── ApiUtils.js                 # HTTP request helpers
+│       └── ExcelHelper.js              # Excel download/read/write
+├── .dockerignore                       # Excludes node_modules, reports, .env, .git
+├── .env.example                        # Environment variable template
 ├── .gitignore
-├── Dockerfile                        # Playwright Docker image (Ubuntu 24.04 + Node 20)
-├── Jenkinsfile                       # Jenkins declarative pipeline (Docker agent)
+├── Dockerfile                          # Playwright Docker image (Ubuntu 24.04 + Node 20)
+├── Jenkinsfile                         # Jenkins declarative pipeline (Docker agent)
 ├── package.json
-└── playwright.config.js              # Playwright config — retries, sharding, testIgnore
+└── playwright.config.js                # Playwright config — retries, sharding, testIgnore
 ```
 
 ---
@@ -181,16 +194,20 @@ ANTHROPIC_API_KEY=your_key_here   # Optional — enables AI self-healing
 # Run all tests (headless)
 npm test
 
+# Run by folder — fastest way to target a layer
+npm run test:ui               # all tests/ui/ specs
+npm run test:api              # all tests/api/ specs
+npm run test:e2e              # all tests/e2e/ specs
+
 # Run with a visible browser
 npm run test:headed
 
-# Open Playwright UI explorer (interactive)
-npm run test:ui
+# Open Playwright UI explorer (interactive test runner)
+npm run test:explore
 
 # Filter by tag
 npm run test:smoke            # @smoke — critical happy-path tests
 npm run test:regression       # @regression — full regression suite
-npm run test:api              # @api — API-only tests
 
 # Specific test types
 npm run test:a11y             # Accessibility scans only
@@ -204,7 +221,8 @@ npm run test:webkit
 npm run test:all-browsers     # All 3 browsers in sequence
 
 # Run a single spec file
-npx playwright test tests/sauceLabs-pom.spec.js
+npx playwright test tests/ui/sauceLabs-pom.spec.js
+npx playwright test tests/api/eventApi.spec.js
 
 # Open last HTML report
 npm run report
@@ -258,7 +276,9 @@ All POMs extend `BasePage` which provides shared, reliable utilities:
 
 ## Test Coverage
 
-### ~88 tests across 20 spec files
+### ~88 tests across 20 spec files in 3 layers
+
+#### `tests/ui/` — Browser UI Tests
 
 | Spec File | Tests | What It Covers |
 |-----------|-------|----------------|
@@ -269,15 +289,25 @@ All POMs extend `BasePage` which provides shared, reliable utilities:
 | `flipkart-pom.spec.js` | 4 | `@smoke` `@regression` — modal dismiss, hover, search |
 | `accessibility.spec.js` | 5 | WCAG 2.1 AA — SauceLabs (login/inventory/cart), TodoMVC (empty/with-items) |
 | `visual.spec.js` | 6 | Pixel-diff baselines — SauceLabs (3), TodoMVC (2), Flight Booking (1) |
-| `eventhubApi.spec.js` | 2 | API mock injection + response interception |
-| `eventApi.spec.js` | 5+ | EventHub REST API CRUD (GET, POST, PUT, DELETE) |
-| `Apitests.spec.js` | 5+ | REST API assertions, status codes, response body |
-| `crossBooking.spec.js` | 3+ | Cross-browser-context booking with shared state |
+| `sessionStorage.spec.js` | 2 | Session/local storage state persistence across pages |
+| `dropdownsWeb.spec.js` | 8+ | `<select>` dropdowns, radio buttons, date pickers, multi-select |
+
+#### `tests/api/` — API & Network Tests
+
+| Spec File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `eventApi.spec.js` | 5+ | EventHub REST API CRUD — with **schema validation** on all responses |
+| `eventhubApi.spec.js` | 2 | API mock injection + response interception via `page.route()` |
+| `Apitests.spec.js` | 5+ | REST API — status codes, response body assertions |
 | `Interceptapirequest.spec.js` | 2 | Intercept and modify outgoing requests |
 | `Interceptapiresponse.spec.js` | 2 | Mock API responses |
-| `sessionStorage.spec.js` | 2 | Session/local storage state persistence across pages |
+
+#### `tests/e2e/` — End-to-End Flow Tests
+
+| Spec File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `crossBooking.spec.js` | 3+ | Cross-browser-context booking flow with shared auth state |
 | `readWriteExcel.spec.js` | 3 | Excel file download, read cell values, write results |
-| `dropdownsWeb.spec.js` | 8+ | `<select>` dropdowns, radio buttons, date pickers, multi-select |
 
 ---
 
@@ -338,7 +368,7 @@ async function scanPage(page, pageName) {
 
 ## Visual Regression Testing
 
-Uses Playwright's built-in **`toHaveScreenshot()`** — zero extra packages. Baseline screenshots are committed to the repo under `tests/visual.spec.js-snapshots/`.
+Uses Playwright's built-in **`toHaveScreenshot()`** — zero extra packages. Baseline screenshots are committed to the repo under `tests/ui/visual.spec.js-snapshots/`.
 
 **How it works:**
 - First run captures a **golden baseline** PNG
@@ -394,6 +424,63 @@ test('resilient login', async ({ healingPage }) => {
 ```
 
 If no API key is configured, the locator silently falls back to the original selector — no test will break.
+
+---
+
+## API Schema Validation
+
+`tests/utils/SchemaValidator.js` validates the **shape** of an API response before asserting individual values. This catches contract breaks — when the API returns a field with the wrong type, removes a required field, or changes the response structure.
+
+**Zero dependencies** — no `ajv` or external packages needed.
+
+### How It Works
+
+```js
+const { assertSchema } = require('../utils/SchemaValidator');
+
+const loginResponseSchema = {
+    token: { required: true,  type: 'string', minLength: 10 },
+    user:  { required: true,  type: 'object' },
+};
+
+test('login returns correct schema', async ({ request }) => {
+    const res  = await request.post('/api/auth/login', { data: creds });
+    const body = await res.json();
+
+    // Validates structure FIRST — fails with a readable list of schema errors
+    assertSchema(body, loginResponseSchema, 'Login response');
+
+    // Then assert specific values
+    expect(body.user.email).toBe(creds.email);
+});
+```
+
+If the schema is violated, you get a clear error:
+```
+Login response schema validation failed:
+  [MISSING] token is required
+  [TYPE] user: expected object, got string
+```
+
+### Schema Files
+
+| File | Validates |
+|------|-----------|
+| `tests/api/schemas/loginSchema.js` | `token`, `userId`, `message` |
+| `tests/api/schemas/orderSchema.js` | `orders[]` array + `orderid` |
+| `tests/api/schemas/eventSchema.js` | Event item fields + `pagination` object |
+
+### Supported Rules
+
+| Rule | Description |
+|------|-------------|
+| `required: true` | Field must be present |
+| `type: 'string'` | Checks `typeof` — supports `string`, `number`, `boolean`, `object`, `array` |
+| `nullable: true` | Allows `null` even when `required` |
+| `minLength: n` | Minimum string length |
+| `min: n` | Minimum numeric value |
+| `items: {}` | Schema for the first item of an array (spot-checks array contents) |
+| `properties: {}` | Nested schema for an object field |
 
 ---
 
@@ -503,7 +590,7 @@ npm run docker:report
 
 ```bash
 npm run docker:visual:update
-# New *-chromium-linux.png files appear in tests/visual.spec.js-snapshots/
+# New *-chromium-linux.png files appear in tests/ui/visual.spec.js-snapshots/
 # git add + commit them for CI to use
 ```
 
@@ -511,7 +598,7 @@ npm run docker:visual:update
 
 ```bash
 # Run a single spec file
-docker run --rm --ipc=host playwright-tests npx playwright test tests/sauceLabs-pom.spec.js
+docker run --rm --ipc=host playwright-tests npx playwright test tests/ui/sauceLabs-pom.spec.js
 
 # Run on Firefox
 docker run --rm --ipc=host playwright-tests npx playwright test --project=firefox
@@ -594,9 +681,14 @@ In GitHub Actions, `BASE_URL` and `NODE_ENV` are set automatically based on the 
 ## Contributing
 
 1. Branch from `main`: `git checkout -b feature/your-feature`
-2. Write tests with appropriate tags (`@smoke` for critical path, `@regression` for full suite)
-3. All tests must pass locally: `npm test`
-4. Accessibility: run `npm run test:a11y` — no new critical/serious violations
-5. Visual changes: regenerate baselines with `npm run test:visual:update`, then commit the new PNGs
-6. Open a PR — CI runs all 88 tests automatically across 4 parallel shards
-7. PR gets an automatic comment with the test result table and a link to the HTML report
+2. Place tests in the right folder:
+   - `tests/ui/` for browser-based UI tests
+   - `tests/api/` for API and network tests
+   - `tests/e2e/` for full end-to-end flows
+3. Tag tests appropriately (`@smoke` for critical path, `@regression` for full suite)
+4. For API tests, add a schema in `tests/api/schemas/` and call `assertSchema()` before value assertions
+5. All tests must pass locally: `npm test`
+6. Accessibility: run `npm run test:a11y` — no new critical/serious violations allowed
+7. Visual changes: regenerate baselines with `npm run test:visual:update`, then commit the new PNGs
+8. Open a PR — CI runs all tests automatically across 4 parallel shards
+9. PR gets an automatic comment with the test result table and a link to the HTML report
