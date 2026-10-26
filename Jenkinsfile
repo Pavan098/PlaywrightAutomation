@@ -1,32 +1,47 @@
-// ─── JENKINS DECLARATIVE PIPELINE ────────────────────────────────────────────
-// Jenkins is a self-hosted CI/CD server (your company runs it on its own infra).
-// GitHub Actions is cloud-hosted (GitHub's servers). Both do the same job.
+// ─── JENKINS DECLARATIVE PIPELINE (Docker) ────────────────────────────────────
+// Uses Microsoft's official Playwright Docker image as the build agent.
+// Jenkins pulls the image and runs the entire pipeline inside it.
 //
-// When to choose Jenkins over GitHub Actions:
-//   - Your company has security rules against sending code to GitHub's cloud runners
-//   - You need tests to hit internal/VPN-protected environments
-//   - You already have Jenkins set up for other projects
+// WHY DOCKER AGENT?
+//   - No need to install Node.js or browsers on the Jenkins server itself
+//   - Every build runs in a fresh, identical environment
+//   - Browser versions are pinned to the image tag — no surprise upgrades
+//   - Matches GitHub Actions environment exactly (both Linux + same Playwright version)
 //
-// Setup: Place this file at the root of your repo. In Jenkins → New Item →
-// Pipeline → Pipeline script from SCM → point to your repo + "Jenkinsfile"
+// JENKINS REQUIREMENTS:
+//   - Docker installed on the Jenkins server/agent
+//   - Docker Pipeline plugin (Manage Jenkins → Plugin Manager)
+//   - HTML Publisher plugin (for the test report)
+//   - Credentials: 'anthropic-api-key' (optional, for AI self-healing)
+//
+// SETUP:
+//   Jenkins → New Item → Pipeline → Pipeline script from SCM → point to this repo
 // ─────────────────────────────────────────────────────────────────────────────
 
 pipeline {
-    agent any   // Runs on any available Jenkins agent (build server)
 
-    // How long before Jenkins kills a hung build
-    options {
-        timeout(time: 60, unit: 'MINUTES')
-        buildDiscarder(logRotator(numToKeepStr: '10'))  // Keep last 10 builds
-        disableConcurrentBuilds()  // Don't run two builds of the same branch at once
+    // ── Docker agent ─────────────────────────────────────────────────────────
+    // Jenkins pulls this image and runs every stage inside the container.
+    // --ipc=host  → Chromium needs shared memory; this flag grants access
+    // -u root     → Avoid permission issues when writing reports
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.49.0-noble'
+            args  '--ipc=host -u root'
+        }
     }
 
-    // Parameters let you pass options when triggering a build manually from Jenkins UI
+    options {
+        timeout(time: 60, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        disableConcurrentBuilds()
+    }
+
     parameters {
         string(
             name: 'TEST_FILE',
             defaultValue: '',
-            description: 'Specific test file to run (leave blank for all tests)'
+            description: 'Specific test file to run (blank = all tests)'
         )
         choice(
             name: 'BROWSER',
@@ -36,47 +51,40 @@ pipeline {
         string(
             name: 'GREP_TAG',
             defaultValue: '',
-            description: 'Filter tests by tag: @smoke, @regression, @api (blank = all)'
+            description: 'Filter by tag: @smoke | @regression | @api (blank = all)'
         )
         booleanParam(
             name: 'HEADED',
             defaultValue: false,
-            description: 'Run in headed mode (only works if Jenkins has a display)'
+            description: 'Run headed (requires Jenkins agent with a display / Xvfb)'
         )
     }
 
-    // Environment variables — secrets come from Jenkins Credentials store
-    // Configure at: Jenkins → Manage Jenkins → Credentials
     environment {
-        CI = 'true'
-        ANTHROPIC_API_KEY = credentials('anthropic-api-key')  // Jenkins secret
-        // Set URL based on branch
-        BASE_URL = "${env.BRANCH_NAME ==~ /^(main|master)$/ ? 'https://production.yourcompany.com' : 'https://sandbox.yourcompany.com'}"
-        NODE_ENV = "${env.BRANCH_NAME ==~ /^(main|master)$/ ? 'production' : 'development'}"
+        CI           = 'true'
+        BASE_URL     = "${env.BRANCH_NAME ==~ /^(main|master)$/ ? 'https://rahulshettyacademy.com' : 'https://rahulshettyacademy.com'}"
+        NODE_ENV     = "${env.BRANCH_NAME ==~ /^(main|master)$/ ? 'production' : 'development'}"
+        // Store ANTHROPIC_API_KEY in Jenkins Credentials (ID: anthropic-api-key)
+        // Remove the next line if you don't use AI self-healing
+        ANTHROPIC_API_KEY = credentials('anthropic-api-key')
     }
 
     stages {
-        // ── Stage 1: Install dependencies ───────────────────────────────────
+
+        // ── Stage 1: Install npm dependencies ─────────────────────────────────
+        // Browsers are already in the Docker image — no playwright install needed!
         stage('Install Dependencies') {
             steps {
-                echo "Installing npm packages..."
-                sh 'npm ci'   // Always npm ci (not npm install) for reproducible builds
+                echo "Installing npm packages inside Docker container..."
+                sh 'node --version && npm --version'
+                sh 'npm ci'
             }
         }
 
-        // ── Stage 2: Install Playwright browsers ────────────────────────────
-        stage('Install Browsers') {
-            steps {
-                echo "Installing Playwright ${params.BROWSER} browser..."
-                sh "npx playwright install --with-deps ${params.BROWSER}"
-            }
-        }
-
-        // ── Stage 3: Run tests ───────────────────────────────────────────────
+        // ── Stage 2: Run Playwright tests ─────────────────────────────────────
         stage('Run Tests') {
             steps {
                 script {
-                    // Build the test command dynamically based on parameters
                     def cmd = "npx playwright test --project=${params.BROWSER}"
 
                     if (params.TEST_FILE?.trim()) {
@@ -89,8 +97,9 @@ pipeline {
                         cmd += " --headed"
                     }
 
-                    echo "Executing: ${cmd}"
+                    echo "Branch     : ${env.BRANCH_NAME}"
                     echo "Environment: ${env.NODE_ENV} → ${env.BASE_URL}"
+                    echo "Command    : ${cmd}"
 
                     sh cmd
                 }
@@ -98,49 +107,41 @@ pipeline {
         }
     }
 
-    // ── Post-build actions (always run, even on failure) ────────────────────
+    // ── Post-build actions ────────────────────────────────────────────────────
     post {
         always {
-            // Publish HTML report in Jenkins using the HTML Publisher plugin
-            // Install plugin: Jenkins → Manage Jenkins → Plugin Manager → HTML Publisher
+            // Publish Playwright HTML report
+            // Requires: HTML Publisher plugin
             publishHTML([
-                allowMissing: false,
+                allowMissing         : true,
                 alwaysLinkToLastBuild: true,
-                keepAll: true,
-                reportDir: 'playwright-report',
-                reportFiles: 'index.html',
-                reportName: 'Playwright Report',
-                reportTitles: 'Test Report'
+                keepAll              : true,
+                reportDir            : 'playwright-report',
+                reportFiles          : 'index.html',
+                reportName           : 'Playwright Test Report',
+                reportTitles         : ''
             ])
 
-            // Archive videos and screenshots from failing tests
+            // Archive failure screenshots, videos, and traces
             archiveArtifacts(
-                artifacts: 'test-results/**/*',
+                artifacts        : 'test-results/**/*',
                 allowEmptyArchive: true,
-                fingerprint: true
+                fingerprint      : true
             )
 
-            // Clean workspace after build to save disk space
             cleanWs()
         }
 
         success {
-            echo "✅ All Playwright tests passed on branch: ${env.BRANCH_NAME}"
-            // OPTIONAL: Send Slack notification on success
-            // slackSend(color: 'good', message: "✅ Tests passed: ${env.JOB_NAME} #${env.BUILD_NUMBER}")
+            echo "✅ All tests passed — ${env.JOB_NAME} #${env.BUILD_NUMBER} on ${env.BRANCH_NAME}"
+            // Uncomment after adding SLACK_WEBHOOK to Jenkins Credentials:
+            // slackSend(color: 'good', message: "✅ *${env.JOB_NAME}* #${env.BUILD_NUMBER} passed on `${env.BRANCH_NAME}` <${env.BUILD_URL}|View>")
         }
 
         failure {
-            echo "❌ Playwright tests failed on branch: ${env.BRANCH_NAME}"
-            // OPTIONAL: Send Slack notification on failure
-            // slackSend(color: 'danger', message: "❌ Tests failed: ${env.JOB_NAME} #${env.BUILD_NUMBER} — ${env.BUILD_URL}")
-
-            // OPTIONAL: Send email notification
-            // emailext(
-            //     subject: "❌ Test Failure: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-            //     body: "Tests failed. View report: ${env.BUILD_URL}",
-            //     recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-            // )
+            echo "❌ Tests failed — ${env.JOB_NAME} #${env.BUILD_NUMBER} on ${env.BRANCH_NAME}"
+            // Uncomment after adding SLACK_WEBHOOK to Jenkins Credentials:
+            // slackSend(color: 'danger', message: "❌ *${env.JOB_NAME}* #${env.BUILD_NUMBER} failed on `${env.BRANCH_NAME}` <${env.BUILD_URL}|View Report>")
         }
     }
 }

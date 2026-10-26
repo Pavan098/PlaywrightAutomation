@@ -17,6 +17,7 @@ A production-grade end-to-end test automation framework built with **Playwright*
 - [Accessibility Testing](#accessibility-testing)
 - [Visual Regression Testing](#visual-regression-testing)
 - [CI/CD](#cicd)
+- [Docker](#docker)
 - [Reporting](#reporting)
 - [AI Self-Healing Locators](#ai-self-healing-locators)
 - [Environment Configuration](#environment-configuration)
@@ -31,7 +32,8 @@ A production-grade end-to-end test automation framework built with **Playwright*
 | JavaScript (CommonJS) | Language |
 | Page Object Model | Test architecture pattern |
 | GitHub Actions | CI/CD pipeline with 4-shard parallel execution |
-| Jenkins | Alternative CI pipeline |
+| Jenkins | Alternative CI pipeline (Docker agent) |
+| Docker | Consistent cross-platform test execution |
 | Allure | Advanced test reporting |
 | `@axe-core/playwright` | WCAG 2.1 accessibility scanning |
 | `toHaveScreenshot()` | Built-in visual regression comparison |
@@ -87,9 +89,11 @@ PlaywrightAutomation/
 │   ├── sessionStorage.spec.js        # Session & storage state tests
 │   ├── readWriteExcel.spec.js        # Excel data-driven tests
 │   └── example.spec.js               # Playwright starter example
+├── .dockerignore                     # Files excluded from Docker image
 ├── .env.example                      # Environment variable template
 ├── .gitignore
-├── Jenkinsfile                       # Jenkins declarative pipeline
+├── Dockerfile                        # Playwright Docker image definition
+├── Jenkinsfile                       # Jenkins declarative pipeline (Docker agent)
 ├── package.json
 └── playwright.config.js              # Playwright configuration
 ```
@@ -340,7 +344,7 @@ Go to **Actions → Playwright Tests → Run workflow:**
 
 ### Jenkins
 
-Import [`Jenkinsfile`](Jenkinsfile) into your Jenkins instance. Parameters mirror the GitHub Actions inputs: `TEST_FILE`, `BROWSER`, `GREP_TAG`, `HEADED`.
+Import [`Jenkinsfile`](Jenkinsfile) into your Jenkins instance. The pipeline runs inside the official Playwright Docker image — no need to install Node.js or browsers on the Jenkins server. Parameters mirror the GitHub Actions inputs: `TEST_FILE`, `BROWSER`, `GREP_TAG`, `HEADED`.
 
 ### Branch Strategy
 
@@ -353,6 +357,73 @@ main  ←── epic/feature-name  ←── feature/specific-change
 Production env
 (merge trigger — full regression runs on 4 shards)
 ```
+
+---
+
+## Docker
+
+Run tests in an isolated Linux container — identical environment on Windows, Mac, and CI.
+
+**Why Docker?**
+- No need to install Node.js or browsers locally
+- Every run uses a fresh, identical environment
+- Browser versions are pinned to the image tag (no surprise upgrades)
+- Matches the GitHub Actions environment exactly
+
+### Quick Start
+
+```bash
+# Build the image
+npm run docker:build
+
+# Run all tests
+npm run docker:test
+
+# Run @smoke tests only
+npm run docker:smoke
+
+# Run @regression tests only
+npm run docker:regression
+
+# Run tests AND get the HTML report on your host machine
+npm run docker:report
+# Report available at playwright-report/index.html
+```
+
+### Generate Linux Visual Baselines
+
+Visual baselines are OS-specific. To generate Linux baselines for CI:
+
+```bash
+npm run docker:visual:update
+# Commits the new *-chromium-linux.png files
+```
+
+### Manual Docker Commands
+
+```bash
+# Run a specific test file
+docker run --rm --ipc=host playwright-tests npx playwright test tests/sauceLabs-pom.spec.js
+
+# Run on Firefox
+docker run --rm --ipc=host playwright-tests npx playwright test --project=firefox
+
+# Pass environment variables (e.g. API key)
+docker run --rm --ipc=host -e ANTHROPIC_API_KEY=sk-ant-xxx playwright-tests
+```
+
+### How It Works
+
+```
+Dockerfile
+├── FROM mcr.microsoft.com/playwright:v1.49.0-noble   ← Ubuntu 24.04 + Node 20 + all browsers
+├── COPY package*.json → npm ci                        ← cached layer (fast rebuilds)
+├── COPY . .                                           ← your test code
+├── ENV CI=true                                        ← activates retries + testIgnore
+└── CMD ["npx", "playwright", "test"]                  ← default: run all tests
+```
+
+The `--ipc=host` flag is required for Chromium's shared memory. `.dockerignore` excludes `node_modules/`, reports, `.env`, and `.git/` to keep the image lean.
 
 ---
 

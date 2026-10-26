@@ -1,0 +1,21 @@
+# Dependencies — reinstalled inside container via npm ci
+node_modules/
+
+# Generated reports — mounted as volumes if needed
+playwright-report/
+test-results/
+allure-results/
+allure-report/
+
+# Downloaded test files
+downloads/
+
+# Secrets — never copy into image
+.env
+
+# Git history — not needed in container
+.git/
+
+# OS files
+.DS_Store
+Thumbs.db
