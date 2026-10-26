@@ -79,7 +79,9 @@ jobs:
           BROWSER="${{ github.event.inputs.browser }}"
           BROWSER="${BROWSER:-chromium}"
 
-          CMD="npx playwright test --project=$BROWSER --shard=${{ matrix.shard }}/4 --reporter=blob"
+          # Exclude visual regression — baselines are OS-specific (win32 vs linux)
+          # Run locally with: npm run test:visual
+          CMD="npx playwright test --project=$BROWSER --shard=${{ matrix.shard }}/4 --reporter=blob --ignore=tests/visual.spec.js"
 
           if [ -n "${{ github.event.inputs.test_file }}" ]; then
             CMD="$CMD ${{ github.event.inputs.test_file }}"
