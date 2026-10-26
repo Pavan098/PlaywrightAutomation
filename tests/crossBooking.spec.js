@@ -98,7 +98,7 @@ const eventcreate = {
     category: "Workshop",
     venue: "Pune Tech Centre",
     city: "Pune",
-    eventDate: "2026-06-15T09:00:00.000Z",
+    eventDate: "2027-06-15T09:00:00.000Z",
     price: 1500,
     totalSeats: 500,
     imageUrl: "https://example.com/banner.jpg"
@@ -109,7 +109,7 @@ const updatevent = {
     category: "Workshop And Conference",
     venue: "Pune Tech Centre",
     city: "Pune",
-    eventDate: "2026-07-15T09:00:00.000Z",
+    eventDate: "2027-07-15T09:00:00.000Z",
     price: 1500,
     totalSeats: 500,
     imageUrl: "https://example.com/banner.jpg"
@@ -305,7 +305,6 @@ test('Fetch the Events api by yahoo user and verify the response', async ({ requ
     //Navigate directly to specified url
     await page.goto(`${url}/bookings/${yahooid}`);
     await page.waitForLoadState('networkidle');
-    await page.pause();
 
     //Verify Validation access is denied
     await expect(page.getByText('{"success":false,"error":"Unauthorized"}')).toBeVisible();

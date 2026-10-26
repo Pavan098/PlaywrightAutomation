@@ -138,7 +138,7 @@ test('Select the Flight of one way from one city to another city and verify same
     await page.getByRole('link', { name: 'Mumbai (BOM)' }).click();
 
     //Select the To City
-    await page.getByRole('link', { name: 'Jammu (IXJ)' }).click();
+    await page.locator('[id*="destinationStation1_CTNR"]').getByRole('link', { name: 'Jammu (IXJ)' }).click({ force: true });
 
     //Select the date
     await page.getByRole('link', { name: '14' }).first().click();
