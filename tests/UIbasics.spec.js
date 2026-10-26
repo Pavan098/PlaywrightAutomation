@@ -39,7 +39,7 @@ test('Browser context First playwright test',async ({browser})=> //basic structu
     //Input the username, password in that and click on signin button
     //to locate the webelements we need to use 
     await page.locator('#username').fill('test');
-    await page.locator('#password').fill('learning');
+    await page.locator('#password').fill('Learning@830$3mK2');
     await page.locator('#signInBtn').click();
 
     //for dynamic message wait playwright to wait for the message
@@ -253,7 +253,7 @@ test('Generated from Code Gen', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Username:' }).click();
   await page.getByRole('textbox', { name: 'Username:' }).fill('rahulshettyacademy');
   await page.getByRole('textbox', { name: 'Password:' }).click();
-  await page.getByRole('textbox', { name: 'Password:' }).fill('learning');
+  await page.getByRole('textbox', { name: 'Password:' }).fill('Learning@830$3mK2');
   await page.getByRole('checkbox', { name: 'I Agree to the terms and' }).check();
   await page.getByRole('button', { name: 'Sign In' }).click();
   await page.getByRole('link', { name: 'Category 3' }).click();
@@ -555,9 +555,8 @@ test('End to End Automation Part of Client App using GetBy Different locators',a
     // console.log(await email.nth(2).inputValue());
     
     //Change the Email address
-    await page.pause();
     const emailtxt = page.getByRole('textbox');
-    emailtxt.nth(4).fill('test@gmail.com');
+    await emailtxt.nth(4).fill('test@gmail.com');
 
     //Select the country
     //const country = page.locator('input[placeholder="Select Country"]');
@@ -606,7 +605,6 @@ test('End to End Automation Part of Client App using GetBy Different locators',a
         if(await page.getByText(exactorderid[2]).nth(i).textContent() == exactorderid[2]) {
 
             console.log(i);
-            await page.pause();
             console.log(await page.getByText(exactorderid[2]).nth(i).textContent());
 
             //Click on View button
@@ -652,14 +650,14 @@ const [newPage] = await Promise.all([
     const icon = newPage.locator('.react-date-picker__calendar-button');
     await icon.click(); 
 
-    const monthyear = newPage.getByText('January 2026');
+    const monthyear = newPage.getByText('October 2026');
     await monthyear.click();
-    await newPage.getByText('August').click();
-    await newPage.getByRole('button', {name: 'August 9'}).click();
+    await newPage.getByText('December').click();
+    await newPage.getByRole('button', {name: 'December 9'}).click();
 
     const monthvalue = newPage.locator('input[name="month"]');
     console.log(await monthvalue.inputValue());
-    await expect(monthvalue).toHaveValue('8');
+    await expect(monthvalue).toHaveValue('12');
     const datevalue = newPage.locator('input[name="day"]');
     await expect(datevalue).toHaveValue('9');
     const year = newPage.locator('input[name="year"]');
@@ -667,7 +665,7 @@ const [newPage] = await Promise.all([
 
     //Now select these dates months and years
     await icon.click();
-    await newPage.getByText('August 2026').click();
+    await newPage.getByText('December 2026').click();
     await newPage.getByText('2026').click();
 
     const selectyear = '2027';
@@ -682,7 +680,6 @@ const [newPage] = await Promise.all([
     //Verify the assertion
     const expectedlist = [monthval,selectday,selectyear];
     const inputs = newPage.locator('.react-date-picker__inputGroup__input');
-    await newPage.pause();
     for(let i = 0; i < expectedlist.length; i++){
 
         const value = await inputs.nth(i).inputValue();
@@ -727,7 +724,7 @@ test('More Validations', async({browser,page}) =>{
     await expect(hideshow).toBeVisible();
 });
 
-test.only('JS Popups', async({browser,page}) =>{
+test('JS Popups', async({browser,page}) =>{
    
     //Navigate to Page
     await page.goto('https://rahulshettyacademy.com/AutomationPractice/');

@@ -11,7 +11,7 @@ const eventcreate = {
     category: "Workshop",
     venue: "Pune Tech Centre",
     city: "Pune",
-    eventDate: "2026-06-15T09:00:00.000Z",
+    eventDate: "2027-06-15T09:00:00.000Z",
     price: 1500,
     totalSeats: 500,
     imageUrl: "https://example.com/banner.jpg"
@@ -22,7 +22,7 @@ const updatevent = {
     category: "Workshop And Conference",
     venue: "Pune Tech Centre",
     city: "Pune",
-    eventDate: "2026-07-15T09:00:00.000Z",
+    eventDate: "2027-07-15T09:00:00.000Z",
     price: 1500,
     totalSeats: 500,
     imageUrl: "https://example.com/banner.jpg"

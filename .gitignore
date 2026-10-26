@@ -1,0 +1,11 @@
+node_modules/
+playwright-report/
+test-results/
+allure-results/
+allure-report/
+downloads/
+state.json
+apitoken.json
+apitoken_gmail.json
+apitoken_yahoo.json
+.env

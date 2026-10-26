@@ -1,0 +1,166 @@
+name: Playwright Tests
+
+# ─── WHEN THIS RUNS ───────────────────────────────────────────────────────────
+# Concept: We want tests to run at THREE key moments:
+#   1. On every push to an epic/feature branch  → early feedback while developing
+#   2. On every PR targeting main               → quality gate before merging
+#   3. Nightly schedule on main                 → catch regressions overnight
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'epic/**'      # e.g. epic/payment-gateway, epic/search-revamp
+      - 'feature/**'   # e.g. feature/login-redesign
+  pull_request:
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: '0 2 * * *'   # Nightly at 2am UTC (before devs start their day)
+  workflow_dispatch:        # Manual trigger from GitHub UI
+    inputs:
+      test_file:
+        description: 'Specific test file to run (blank = all tests)'
+        required: false
+        default: ''
+      browser:
+        description: 'Browser to test on'
+        required: false
+        default: 'chromium'
+        type: choice
+        options: [chromium, firefox, webkit]
+      grep_tag:
+        description: 'Filter tests by tag (e.g. @smoke, @regression, @api)'
+        required: false
+        default: ''
+
+# ─── ENVIRONMENT DECISION ─────────────────────────────────────────────────────
+# Key concept: Tests on epic branches hit SANDBOX; tests on main hit PRODUCTION.
+# This mirrors your company's deployment pipeline exactly.
+env:
+  # Default — overridden per branch in "Set environment" step below
+  NODE_ENV: development
+
+# ─── THE JOB ──────────────────────────────────────────────────────────────────
+jobs:
+  playwright-tests:
+    name: 'Tests — ${{ github.event.inputs.browser || ''chromium'' }} — ${{ github.ref_name }}'
+    timeout-minutes: 60
+    runs-on: ubuntu-latest   # Free Linux VM spun up fresh for every run
+
+    steps:
+      # Step 1: Download your repo code onto the runner VM
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install Node.js (matches your local version)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'   # Caches node_modules between runs for speed
+
+      # Step 3: Install packages from package-lock.json EXACTLY (reproducible builds)
+      # npm ci is stricter than npm install — never modifies package-lock.json
+      - name: Install npm dependencies
+        run: npm ci
+
+      # Step 4: Download Playwright browsers (Chromium by default ~170MB)
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ github.event.inputs.browser || 'chromium' }}
+
+      # Step 5: Set BASE_URL depending on which branch triggered this run
+      # epic/** → sandbox, main → staging/production
+      - name: Set environment URL
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "BASE_URL=${{ vars.PROD_URL || 'https://rahulshettyacademy.com' }}" >> $GITHUB_ENV
+            echo "NODE_ENV=production" >> $GITHUB_ENV
+            echo "Running against PRODUCTION environment"
+          else
+            echo "BASE_URL=${{ vars.SANDBOX_URL || 'https://rahulshettyacademy.com' }}" >> $GITHUB_ENV
+            echo "NODE_ENV=development" >> $GITHUB_ENV
+            echo "Running against SANDBOX environment"
+          fi
+
+      # Step 6: Run the tests
+      # Secrets (like ANTHROPIC_API_KEY) are stored in GitHub Settings → Secrets
+      # and injected here — they are NEVER visible in logs
+      - name: Run Playwright tests
+        run: |
+          CMD="npx playwright test --project=${{ github.event.inputs.browser || 'chromium' }}"
+
+          # Run specific file if provided via manual trigger
+          if [ -n "${{ github.event.inputs.test_file }}" ]; then
+            CMD="$CMD ${{ github.event.inputs.test_file }}"
+          fi
+
+          # Filter by tag if provided (e.g. @smoke runs only smoke tests)
+          if [ -n "${{ github.event.inputs.grep_tag }}" ]; then
+            CMD="$CMD --grep \"${{ github.event.inputs.grep_tag }}\""
+          fi
+
+          echo "Running: $CMD"
+          eval $CMD
+        env:
+          CI: true
+          # Add your API keys as GitHub Secrets — Settings → Secrets → Actions
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      # Step 7: Always upload the HTML report even if tests failed
+      # Go to GitHub → Actions → Your Run → Artifacts to download it
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ github.run_id }}-${{ github.event.inputs.browser || 'chromium' }}
+          path: playwright-report/
+          retention-days: 30   # Keeps reports for 30 days
+
+      # Step 8: Upload failure videos/screenshots/traces
+      - name: Upload test failure artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.run_id }}
+          path: test-results/
+          retention-days: 7
+
+      # Step 9: Comment on the PR with a pass/fail badge and link to report
+      # Only runs on pull_request events
+      - name: Comment on PR with test results
+        uses: actions/github-script@v7
+        if: always() && github.event_name == 'pull_request'
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+            const browser = '${{ github.event.inputs.browser || "chromium" }}';
+            const body = [
+              `## ${emoji} Playwright Tests — ${browser}`,
+              '',
+              `| Field | Value |`,
+              `|-------|-------|`,
+              `| Status | **${status.toUpperCase()}** |`,
+              `| Branch | \`${{ github.head_ref }}\` |`,
+              `| Target | \`${{ github.base_ref }}\` |`,
+              `| Environment | ${{ env.NODE_ENV }} |`,
+              `| Report | [Download Artifact](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) |`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      # OPTIONAL: Notify Slack on failure (uncomment and add SLACK_WEBHOOK secret)
+      # - name: Notify Slack on failure
+      #   if: failure()
+      #   uses: slackapi/slack-github-action@v1
+      #   with:
+      #     payload: '{"text":"❌ Playwright tests failed on *${{ github.ref_name }}*. <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Report>"}'
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

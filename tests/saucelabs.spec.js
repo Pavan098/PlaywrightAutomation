@@ -128,10 +128,10 @@ test('Verify user is able to login with valid user and verify the products count
 
    //Verify click on 3 lins and all items logout, about and reset to Apps state is visible
    await page.getByRole('button',{name:'Open Menu'}).click();
-   await expect(page.getByRole('link',{name:'Logout'})).toBeVisible();
-   await expect(page.getByRole('link',{name:'About'})).toBeVisible();
-   await expect(page.getByRole('link',{name:'Reset App State'})).toBeVisible();
-   await expect(page.getByRole('link',{name:'All Items'})).toBeVisible();
+   await expect(page.locator('#logout_sidebar_link')).toBeVisible();
+   await expect(page.locator('#about_sidebar_link')).toBeVisible();
+   await expect(page.locator('#reset_sidebar_link')).toBeVisible();
+   await expect(page.locator('#inventory_sidebar_link')).toBeVisible();
    
    //click on close menu
    await page.getByRole('button',{name:'Close Menu'}).click();
