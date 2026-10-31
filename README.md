@@ -61,6 +61,8 @@ This framework was built incrementally, adding real-world production capabilitie
 | **Mobile Viewport** | `mobile-chrome` (Pixel 5) and `mobile-safari` (iPhone 12) projects |
 | **Copilot Instructions** | `.github/copilot-instructions.md` — coding standards for AI-generated code |
 | **Prompt Versioning** | `prompts/` — versioned AI prompts for consistent test generation |
+| **Custom Fixtures** | `sauceLabsPage` / `eventHubPage` — pre-authenticated pages, replaces `test.use({ storageState })` boilerplate |
+| **Environment Config** | `config/environments.js` — `ENV=dev\|staging` maps to app URLs; no hardcoded URLs in test files |
 
 ---
 
@@ -82,7 +84,7 @@ This framework was built incrementally, adding real-world production capabilitie
 | `@axe-core/playwright` | WCAG 2.1 accessibility scanning (Deque axe-core) |
 | `toHaveScreenshot()` | Built-in visual regression pixel-diff |
 | Claude Haiku (Anthropic) | AI self-healing locators |
-| `dotenv` | Environment configuration |
+| `dotenv` + `config/environments.js` | Environment configuration — `ENV=dev\|staging` selects target URLs |
 | `xlsx` | Excel read/write for data-driven tests |
 
 ---
@@ -148,10 +150,8 @@ PlaywrightAutomation/
 │   ├── e2e/                            # Full end-to-end flow tests
 │   │   ├── crossBooking.spec.js        # Cross-browser-context booking flow
 │   │   └── readWriteExcel.spec.js      # Excel data-driven download/read/write
-│   ├── config/
-│   │   └── env.js                      # Environment configs (dev / staging / prod)
 │   ├── fixtures/
-│   │   └── index.js                    # Custom Playwright fixtures (healingPage)
+│   │   └── index.js                    # Custom fixtures: sauceLabsPage, eventHubPage, healingPage, apiContext
 │   └── utils/
 │       ├── SchemaValidator.js          # Zero-dependency JSON schema validator
 │       ├── SelfHealingLocator.js       # AI-powered locator recovery via Claude Haiku
@@ -164,6 +164,8 @@ PlaywrightAutomation/
 ├── .dockerignore                       # Excludes node_modules, reports, .env, .git
 ├── .env.example                        # Environment variable template
 ├── .gitignore
+├── config/
+│   └── environments.js                 # ENV=dev|staging → app URLs for all test targets
 ├── Dockerfile                          # Playwright Docker image (Ubuntu 24.04 + Node 20)
 ├── Jenkinsfile                         # Jenkins declarative pipeline (Docker agent)
 ├── package.json
@@ -189,9 +191,9 @@ npm install
 # Install Playwright browsers
 npx playwright install --with-deps chromium
 
-# Copy environment template
+# Copy environment template (optional — defaults work without .env)
 cp .env.example .env
-# Edit .env — add BASE_URL and optionally ANTHROPIC_API_KEY
+# Edit .env — set ENV=staging to target staging, add ANTHROPIC_API_KEY for self-healing
 ```
 
 ### Option B — Docker (no local Node.js needed)
@@ -529,37 +531,50 @@ Login response schema validation failed:
 
 ## Auth State Reuse
 
-`tests/global.setup.js` runs **once before the whole suite** and logs into each app, saving browser session cookies/localStorage to `tests/data/auth/*.json`. Every subsequent test loads that file — no login call per test.
+`tests/global.setup.js` runs **once before the whole suite** and logs into each app, saving browser session cookies/localStorage to `tests/data/auth/*.json`. Every subsequent test loads that file via a custom fixture — no login call per test.
 
 ```
 Without auth reuse:  60 tests × 2s login = 2 minutes wasted per run
 With auth reuse:     login runs once = 2 seconds total
 ```
 
-**How it works:**
+**How the setup works:**
 
 ```js
-// tests/global.setup.js — runs automatically via 'setup' project
+// tests/global.setup.js — runs automatically via 'setup' project dependency
 setup('authenticate: saucelabs', async ({ page }) => {
-    await page.goto('https://www.saucedemo.com/');
+    await page.goto(env.saucelabs.url);
     await page.locator('#user-name').fill(username);
     await page.locator('#password').fill(password);
     await page.locator('#login-button').click();
-    await page.context().storageState({ path: 'tests/data/auth/saucelabs.json' });
+    fs.mkdirSync(path.dirname(SAUCELABS_AUTH), { recursive: true }); // safe on CI
+    await page.context().storageState({ path: SAUCELABS_AUTH });
 });
 ```
 
-**Using it in a test file:**
+**Using it in a test file (custom fixture pattern):**
 
 ```js
-const path = require('path');
-// Load session at the top of the spec — no login in beforeEach
-test.use({ storageState: path.join(__dirname, '../data/auth/saucelabs.json') });
+const { test, expect } = require('../fixtures');
+const env = require('../../config/environments');
 
-test.beforeEach(async ({ page }) => {
-    await page.goto('https://www.saucedemo.com/inventory.html'); // already logged in
+test.describe('SauceLabs — Cart @regression', () => {
+    test.beforeEach(async ({ sauceLabsPage: page }) => {
+        await page.goto(`${env.saucelabs.url}/inventory.html`); // already logged in
+    });
+
+    test('adds item to cart @smoke', async ({ sauceLabsPage: page }) => {
+        // page is pre-authenticated — no storageState boilerplate needed
+    });
 });
 ```
+
+**Available fixtures:**
+
+| Fixture | Auth state loaded |
+|---------|-------------------|
+| `sauceLabsPage` | `tests/data/auth/saucelabs.json` |
+| `eventHubPage` | `tests/data/auth/eventhub.json` |
 
 > `tests/data/auth/` is gitignored — state files are regenerated on each `npm test` run.
 
@@ -614,7 +629,8 @@ Mobile projects also run via the setup project (auth state reuse works on mobile
 - POM structure (extend BasePage, locators in constructor only)
 - Required tags on every test
 - `assertSchema()` before any field assertions in API tests
-- Auth state reuse instead of per-test login
+- Auth state reuse via `sauceLabsPage` / `eventHubPage` fixtures instead of `test.use({ storageState })`
+- Environment URLs via `config/environments.js` — never hardcode app URLs in test files
 - `@flaky` quarantine pattern
 - What not to generate (hardcoded credentials, waitForTimeout, test.only)
 
@@ -811,22 +827,47 @@ Allure activates automatically when `allure-playwright` is installed. Provides t
 
 ## Environment Configuration
 
-Three environments pre-configured in [`tests/config/env.js`](tests/config/env.js):
+[`config/environments.js`](config/environments.js) maps the `ENV` variable to app URLs for all test targets. Tests import URLs from this file instead of hardcoding them — switching environments requires no code changes.
 
-| Environment | When | BASE_URL |
-|-------------|------|----------|
-| `development` | Local / feature branches | rahulshettyacademy.com |
-| `staging` | Epic branches in CI | rahulshettyacademy.com |
-| `production` | Main/master branch in CI | rahulshettyacademy.com |
+**Available environments:**
 
-Override at runtime:
+| `ENV` value | Target | Notes |
+|-------------|--------|-------|
+| `dev` (default) | Public practice sites | No `.env` changes needed |
+| `staging` | Overridable via `.env` vars | Falls back to `dev` URLs when not set |
 
-```bash
-BASE_URL=https://your-staging-url.com npx playwright test
-NODE_ENV=staging npx playwright test
+**Using env URLs in tests:**
+
+```js
+const env = require('../../config/environments');
+
+await page.goto(env.saucelabs.url);
+await page.goto(`${env.eventhub.url}/dashboard`);
+await request.get(`${env.eventhub.apiUrl}/api/events`);
 ```
 
-In GitHub Actions, `BASE_URL` and `NODE_ENV` are set automatically based on the branch name.
+**Switching environments:**
+
+```bash
+# Run against staging (set URLs in .env or as CI env vars)
+ENV=staging npx playwright test
+
+# Default — no .env needed
+npx playwright test
+```
+
+**Configured app URLs:**
+
+| App | `env.X.url` | Additional |
+|-----|------------|------------|
+| SauceLabs | `env.saucelabs.url` | — |
+| EventHub UI | `env.eventhub.url` | — |
+| EventHub API | `env.eventhub.apiUrl` | REST API base |
+| Rahul Shetty | `env.rahulshetty.url` | — |
+| Flipkart | `env.flipkart.url` | — |
+| TodoMVC | `env.todoMVC.url` | — |
+
+See `.env.example` for all staging override variables.
 
 ---
 
