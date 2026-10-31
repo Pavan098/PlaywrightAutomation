@@ -13,24 +13,19 @@
 //   npx playwright test --grep @regression      (runs full regression set)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const { test, expect } = require('@playwright/test');
-const path = require('path');
+const { test, expect } = require('../fixtures');
 const SauceLabsPage = require('../../Pages/SauceLabs');
-
-// Reuse the auth session saved by global.setup.js — no login call needed per test.
-// The browser opens with cookies/localStorage already populated.
-test.use({ storageState: path.join(__dirname, '../data/auth/saucelabs.json') });
+const env = require('../../config/environments');
 
 test.describe('SauceLabs — Checkout & Cart @regression', () => {
 
-    test.beforeEach(async ({ page }) => {
-        // Session already loaded from storageState — navigate directly to inventory
-        await page.goto('https://www.saucedemo.com/inventory.html');
+    test.beforeEach(async ({ sauceLabsPage: page }) => {
+        await page.goto(`${env.saucelabs.url}/inventory.html`);
         await expect(page).toHaveURL(/inventory/);
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    test('Complete checkout flow and verify order confirmation @smoke', async ({ page }) => {
+    test('Complete checkout flow and verify order confirmation @smoke', async ({ sauceLabsPage: page }) => {
         const sauce = new SauceLabsPage(page);
 
         // Add two items
@@ -58,7 +53,7 @@ test.describe('SauceLabs — Checkout & Cart @regression', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    test('Cart badge count increments for each item added @smoke', async ({ page }) => {
+    test('Cart badge count increments for each item added @smoke', async ({ sauceLabsPage: page }) => {
         const sauce = new SauceLabsPage(page);
 
         // Start with empty cart
@@ -75,7 +70,7 @@ test.describe('SauceLabs — Checkout & Cart @regression', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    test('Cart badge count decrements when items are removed @regression', async ({ page }) => {
+    test('Cart badge count decrements when items are removed @regression', async ({ sauceLabsPage: page }) => {
         const sauce = new SauceLabsPage(page);
 
         await sauce.addToCartByName('Sauce Labs Backpack');
@@ -92,7 +87,7 @@ test.describe('SauceLabs — Checkout & Cart @regression', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    test('Sort by price low to high — verify ascending order @regression', async ({ page }) => {
+    test('Sort by price low to high — verify ascending order @regression', async ({ sauceLabsPage: page }) => {
         const sauce = new SauceLabsPage(page);
 
         await sauce.sortProducts('lohi');
@@ -105,7 +100,7 @@ test.describe('SauceLabs — Checkout & Cart @regression', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    test('Sort by name Z to A — verify descending alphabetical order @regression', async ({ page }) => {
+    test('Sort by name Z to A — verify descending alphabetical order @regression', async ({ sauceLabsPage: page }) => {
         const sauce = new SauceLabsPage(page);
 
         await sauce.sortProducts('za');
@@ -117,7 +112,7 @@ test.describe('SauceLabs — Checkout & Cart @regression', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    test('Sort by price high to low — verify descending order @regression', async ({ page }) => {
+    test('Sort by price high to low — verify descending order @regression', async ({ sauceLabsPage: page }) => {
         const sauce = new SauceLabsPage(page);
 
         await sauce.sortProducts('hilo');
@@ -129,7 +124,7 @@ test.describe('SauceLabs — Checkout & Cart @regression', () => {
     });
 
     // ─────────────────────────────────────────────────────────────────────────
-    test('Checkout total matches sum of individual item prices @regression', async ({ page }) => {
+    test('Checkout total matches sum of individual item prices @regression', async ({ sauceLabsPage: page }) => {
         const sauce = new SauceLabsPage(page);
 
         // Get prices BEFORE adding to cart

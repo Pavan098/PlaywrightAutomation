@@ -144,16 +144,51 @@ test('GET /resource returns correct shape @api', async ({ request }) => {
 
 ---
 
-## Auth State Reuse
+## Auth State Reuse (Custom Fixtures)
 
-Do **not** log in inside every test. Use the session saved by `tests/global.setup.js`:
+Do **not** log in inside every test. Use the pre-authenticated page fixtures from `tests/fixtures/index.js`:
 
 ```js
-const path = require('path');
-test.use({ storageState: path.join(__dirname, '../data/auth/saucelabs.json') });
+const { test, expect } = require('../fixtures');
+const env = require('../../config/environments');
+
+test.describe('SauceLabs — Cart @regression', () => {
+    test.beforeEach(async ({ sauceLabsPage: page }) => {
+        await page.goto(`${env.saucelabs.url}/inventory.html`);
+    });
+
+    test('adds item to cart @smoke', async ({ sauceLabsPage: page }) => {
+        // page is already authenticated — no login needed
+    });
+});
 ```
 
-The setup project runs `global.setup.js` before any browser project, so the auth file is always fresh.
+Available fixtures: `sauceLabsPage`, `eventHubPage`  
+Use `{ sauceLabsPage: page }` destructuring rename so the rest of the test body stays unchanged.
+
+The setup project runs `global.setup.js` before any browser project, so the auth files are always fresh.
+
+---
+
+## Environment Config
+
+Never hardcode app URLs in test files. Import them from `config/environments.js`:
+
+```js
+const env = require('../../config/environments');
+
+await page.goto(env.saucelabs.url);
+await page.goto(`${env.eventhub.url}/dashboard`);
+await request.get(`${env.eventhub.apiUrl}/api/events`);
+```
+
+Switch environments without touching test code:
+```bash
+ENV=staging npx playwright test          # uses staging URLs from .env
+ENV=dev     npx playwright test          # default — public practice sites
+```
+
+See `.env.example` for all available overrides.
 
 ---
 

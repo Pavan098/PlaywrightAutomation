@@ -13,8 +13,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { test: base, expect } = require('@playwright/test');
+const path = require('path');
+const fs   = require('fs');
 const SelfHealingLocator = require('../utils/SelfHealingLocator');
 const Logger = require('../utils/Logger');
+const env  = require('../../config/environments');
+
+const AUTH = {
+    saucelabs: path.join(__dirname, '../data/auth/saucelabs.json'),
+    eventhub:  path.join(__dirname, '../data/auth/eventhub.json'),
+};
 
 const test = base.extend({
 
@@ -83,12 +91,54 @@ const test = base.extend({
     //   });
     apiContext: async ({ playwright }, use) => {
         const ctx = await playwright.request.newContext({
-            baseURL: process.env.API_URL || 'https://api.eventhub.rahulshettyacademy.com/api',
+            baseURL: env.eventhub.apiUrl,
             extraHTTPHeaders: { 'Content-Type': 'application/json' },
         });
 
         await use(ctx);
         await ctx.dispose();
+    },
+
+    // ── Fixture 4: sauceLabsPage ──────────────────────────────────────────────
+    // Authenticated browser page for SauceLabs. The storageState saved by
+    // global.setup.js is loaded into a fresh context — no login per test.
+    //
+    // Usage:
+    //   const { test, expect } = require('../fixtures');
+    //   test('my test', async ({ sauceLabsPage: page }) => {
+    //     await page.goto(`${env.saucelabs.url}/inventory.html`);
+    //   });
+    sauceLabsPage: async ({ browser }, use) => {
+        if (!fs.existsSync(AUTH.saucelabs)) {
+            throw new Error(
+                `SauceLabs auth state not found: ${AUTH.saucelabs}\n` +
+                'Run the setup project first: npx playwright test --project=setup'
+            );
+        }
+        const ctx  = await browser.newContext({ storageState: AUTH.saucelabs });
+        const page = await ctx.newPage();
+        await use(page);
+        await ctx.close();
+    },
+
+    // ── Fixture 5: eventHubPage ───────────────────────────────────────────────
+    // Authenticated browser page for EventHub. Same pattern as sauceLabsPage.
+    //
+    // Usage:
+    //   test('my test', async ({ eventHubPage: page }) => {
+    //     await page.goto(`${env.eventhub.url}/dashboard`);
+    //   });
+    eventHubPage: async ({ browser }, use) => {
+        if (!fs.existsSync(AUTH.eventhub)) {
+            throw new Error(
+                `EventHub auth state not found: ${AUTH.eventhub}\n` +
+                'Run the setup project first: npx playwright test --project=setup'
+            );
+        }
+        const ctx  = await browser.newContext({ storageState: AUTH.eventhub });
+        const page = await ctx.newPage();
+        await use(page);
+        await ctx.close();
     },
 });
 

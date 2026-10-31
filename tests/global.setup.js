@@ -2,6 +2,7 @@ const { test: setup, expect } = require('@playwright/test');
 const path = require('path');
 const fs   = require('fs');
 const users = require('./data/users.json');
+const env   = require('../config/environments');
 
 const SAUCELABS_AUTH = path.join(__dirname, 'data/auth/saucelabs.json');
 const EVENTHUB_AUTH  = path.join(__dirname, 'data/auth/eventhub.json');
@@ -13,7 +14,7 @@ const EVENTHUB_AUTH  = path.join(__dirname, 'data/auth/eventhub.json');
 setup('authenticate: saucelabs', async ({ page }) => {
     const { username, password } = users.saucelabs.standard;
 
-    await page.goto('https://www.saucedemo.com/');
+    await page.goto(env.saucelabs.url);
     await page.locator('#user-name').fill(username);
     await page.locator('#password').fill(password);
     await page.locator('#login-button').click();
@@ -28,7 +29,7 @@ setup('authenticate: saucelabs', async ({ page }) => {
 setup('authenticate: eventhub', async ({ page }) => {
     const { email, password } = users.eventhub.primary;
 
-    await page.goto('https://eventhub.rahulshettyacademy.com/login');
+    await page.goto(`${env.eventhub.url}/login`);
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
     await page.locator('#login-btn').click();
