@@ -650,7 +650,7 @@ const [newPage] = await Promise.all([
     const icon = newPage.locator('.react-date-picker__calendar-button');
     await icon.click(); 
 
-    const monthyear = newPage.getByText('October 2026');
+    const monthyear = newPage.getByText('November 2026');
     await monthyear.click();
     await newPage.getByText('December').click();
     await newPage.getByRole('button', {name: 'December 9'}).click();
